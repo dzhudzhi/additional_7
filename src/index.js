@@ -1,5 +1,5 @@
 module.exports = function solveSudoku(matrix) {
-    return display(solve(matrix));
+    return output(solve(matrix));
 }
 
 cross = (A, B) => {
@@ -31,45 +31,47 @@ rrows.forEach(rs => {
         unitlist.push(cross(rs, cs));
     });
 });
-const units = new Map();
+const units = {};
 squares.forEach(s => {
-    units.set(s, unitlist.filter(u => u.includes(s)));
+    units[s] = unitlist.filter(u => u.includes(s));
 });
-const peers = new Map();
+const peers = {};
 squares.forEach(s => {
-    const peersSet = new Set();
-    units.get(s).forEach(x => {
+    peers[s] = [];
+    units[s].forEach(x => {
         x.forEach(y => {
-            peersSet.add(y)
+            if (!peers[s].includes(y) && y != s) {
+                peers[s].push(y);
+            }
         });
     });
-    peersSet.delete(s);
-    peers.set(s, peersSet);
 });
 
 parse_grid = (grid) => {
-    const values = new Map();
+    const values = {};
     squares.forEach(s => {
-        values.set(s, digits);
+        values[s] = digits;
     });
-    grid_values(grid).forEach((d, s) => {
+    const startingGrid = grid_values(grid);
+    for (let s in startingGrid) {
+        const d = startingGrid[s];
         if (digits.includes(d) && !assign(values, s, d)) {
             return false;
         };
-    });
+    };
     return values;
 };
 
 grid_values = (grid) => {
-    const starting_grid = new Map();
+    const starting_grid = {};
     squares.forEach((s, i) => {
-        starting_grid.set(s, grid[Math.floor(i / 9)][i % 9]);
+        starting_grid[s] = grid[Math.floor(i / 9)][i % 9];
     });
     return starting_grid;
 };
 
 assign = (values, s, d) => {
-    const other_values = values.get(s).replace(d, '');
+    const other_values = values[s].replace(d, '');
     const condition = other_values.split('').every(d2 => {
         return eliminate(values, s, d2);
     });
@@ -81,16 +83,15 @@ assign = (values, s, d) => {
 };
 
 eliminate = (values, s, d) => {
-    if (!values.get(s).includes(d)) {
+    if (!values[s].includes(d)) {
         return values;
     }
-    values.set(s, values.get(s).replace(d, ''));
-    const value = values.get(s);
-    if (value.length == 0) {
+    values[s] = values[s].replace(d, '');
+    if (values[s].length == 0) {
         return false;
-    } else if (value.length == 1) {
-        const d2 = value;
-        const condition = [...peers.get(s)].every(s2 => {
+    } else if (values[s].length == 1) {
+        const d2 = values[s];
+        const condition = [...peers[s]].every(s2 => {
             return eliminate(values, s2, d2);
         });
         if (!condition) {
@@ -98,9 +99,9 @@ eliminate = (values, s, d) => {
         }
     }
 
-    units.get(s).forEach(u => {
-        const dplaces = u.filter(s => {
-            return values.get(s).includes(d);
+    for (let u in units[s]) {
+        const dplaces = units[s][u].filter(x => {
+            return values[x].includes(d);
         });
         if (dplaces.length == 0) {
             return false;
@@ -109,16 +110,17 @@ eliminate = (values, s, d) => {
                 return false;
             }
         }
-    });
+    };
     return values;
 };
 
-display = (values) => {
-    let iterator = values.values();
+output = (values) => {
     const result = initial.slice();
+    let s = '';
     result.forEach((x, i) => {
         x.forEach((y, j) => {
-            result[i][j] = +iterator.next().value;
+            s = squares[9 * i + j];
+            result[i][j] = +values[s];
         });
     });
     return result;
@@ -131,22 +133,19 @@ search = (values) => {
         return false;
     }
     const condition = squares.every(s => {
-        return values.get(s).length == 1;
+        return values[s].length == 1;
     });
     if (condition) {
         return values;
     }
     const min = Math.min(...squares.map(s => {
-        const len = values.get(s).length;
+        const len = values[s].length;
         return len > 1 ? len : 9;
     }));
-    const i = squares.findIndex(s => values.get(s).length == min);
+    const i = squares.findIndex(s => values[s].length == min);
     const s = squares[i];
-    const valuesCopy = new Map();
-    values.forEach((val, key) => {
-        valuesCopy.set(key, val);
-    });
-    const seq = values.get(s).split('').map(d => {
+    const seq = values[s].split('').map(d => {
+        const valuesCopy = Object.assign({}, values);
         return search(assign(valuesCopy, s, d));
     });
     return some(seq);
@@ -158,16 +157,16 @@ some = (seq) => {
         if (seq[e]) return seq[e];
     }
     return false;
-};
+}
 
 const initial = [
-    [0, 5, 0, 0, 7, 0, 0, 0, 1],
-    [8, 7, 6, 0, 2, 1, 9, 0, 3],
-    [0, 0, 0, 0, 3, 5, 0, 0, 0],
-    [0, 0, 0, 0, 4, 3, 6, 1, 0],
-    [0, 4, 0, 0, 0, 9, 0, 0, 2],
-    [0, 1, 2, 0, 5, 0, 0, 0, 4],
-    [0, 8, 9, 0, 6, 4, 0, 0, 0],
-    [0, 0, 0, 0, 0, 7, 0, 0, 0],
-    [1, 6, 7, 0, 0, 2, 5, 4, 0]
+    [0, 0, 2, 0, 0, 9, 0, 0, 4],
+    [0, 1, 5, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 3, 0, 0, 0, 0, 1],
+    [0, 0, 0, 0, 4, 1, 8, 0, 5],
+    [0, 8, 0, 5, 0, 7, 0, 4, 0],
+    [5, 0, 9, 8, 6, 0, 0, 0, 0],
+    [1, 0, 0, 0, 0, 8, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 2, 9, 0],
+    [6, 0, 0, 7, 0, 0, 3, 0, 0]
   ];
